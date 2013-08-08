@@ -1,0 +1,3 @@
+[submodule "src/github.com/howeyc/fsnotify"]
+	path = src/github.com/howeyc/fsnotify
+	url = https://github.com/howeyc/fsnotify
