@@ -93,42 +93,17 @@ func main() {
 			panic(err)
 
 		case ev := <-watcher.Event:
-			switch {
-			case ev.IsCreate():
-				fmt.Println("created", ev.Name)
-				//				if info, err := os.Stat(ev.Name); err == nil && info.IsDir() {
-				//					if err := watcher.Watch(ev.Name); err == nil {
-				//						fmt.Println("Watching", ev.Name)
-				//					}
-				//				}
-
-			case ev.IsDelete():
-				fmt.Println("delete", ev.Name)
-
-			case ev.IsModify():
-				fmt.Println("modified", ev.Name)
-
-			case ev.IsRename():
-				fmt.Println("rename", ev.Name)
-			}
-
 			rebuild := false
-			//switch filepath.Ext(ev.Name) {
-			//case ".py":
-			//	rebuild = true
-			//}
+
 			if globPatterns, exists := dirWatches[filepath.Dir(ev.Name)]; exists {
-				fmt.Println("test 1", globPatterns)
 				for globPattern := range globPatterns {
-					fmt.Println("test 2", globPattern)
 					matched, err := filepath.Match(globPattern, ev.Name)
 					if err != nil {
 						panic(err)
 					}
 					if matched {
-						fmt.Println("match", globPattern, ev.Name)
+						fmt.Printf("changed: %s\n", ev.Name)
 						rebuild = true
-						break
 					}
 				}
 
@@ -150,6 +125,10 @@ func main() {
 			}
 
 		case <-exitChan:
+			if runCmd != nil {
+				runCmd.Process.Kill()
+				runCmd = nil
+			}
 			delayTimer = make(chan bool)
 			go func(c chan bool) {
 				time.Sleep(*restartDelayFlag)
@@ -180,15 +159,16 @@ func main() {
 				runCmd = exec.Command(runCmdArgs[0], runCmdArgs[1:]...)
 				runCmd.Stdout = os.Stdout
 				runCmd.Stderr = os.Stderr
+
 				err := runCmd.Start()
 				if err != nil {
 					panic(err)
 				}
 				exitChan = make(chan bool, 1)
-				go func() {
+				go func(runCmd *exec.Cmd, exitChan chan bool) {
 					runCmd.Wait()
 					exitChan <- true
-				}()
+				}(runCmd, exitChan)
 			}
 		}
 	}
